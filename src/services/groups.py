@@ -1,14 +1,15 @@
 from schemas.groups import (SGroupsAdd, SGroupsSubjects,
                             SGroupsStudents, SGroupsTeachers, SGroupsEdit)
-from sqlalchemy.exc import IntegrityError, InvalidRequestError
+from sqlalchemy.exc import InvalidRequestError  
 from sqlalchemy.orm import selectinload
 from utils.unitofwork import UnitOfWork
 from core.exceptions import MyException
 from models.groups import Groups
 from sqlalchemy import select
+from pprint import pprint
 from uuid import UUID
 import importlib
-
+ 
 
 class GroupsService:
 
@@ -88,12 +89,13 @@ class GroupsService:
         cls.__are_there_any_letters_in_the_group_number_etc(number_group)
 
         async with uow:
-            group_model = await uow.groups.add_one(groups_schema)
             try:
+                group_model = await uow.groups.add_one(groups_schema)
                 await uow.commit()
-                return group_model
-            except IntegrityError:
+                return group_model  
+            except Exception as e:
                 await uow.session.rollback()
+                pprint(e)
                 raise MyException(status_code=409, message="An exception occurred in add_groups."
                                                            "Such a group already exists")
 
@@ -120,12 +122,17 @@ class GroupsService:
         try:
             groups_model.subjects.extend(subjects_model_list)
         except InvalidRequestError as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=409, message="Exception in add_subjects_to_groups. "
                                                        "You add educational subjects that the group has")
         uow.service_session.add(groups_model)
-        await uow.service_session.commit()
-        await uow.service_session.close()
+        try:
+            await uow.service_session.commit()
+            await uow.service_session.close()
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=409, message="Exception in add_subjects_to_groups. ")
+
 
     @classmethod
     async def add_students_to_groups(cls, uow: UnitOfWork, students_list_uuid: SGroupsStudents, groups_uuid: UUID):
@@ -150,12 +157,17 @@ class GroupsService:
         try:
             groups_model.students.extend(students_model_list)
         except InvalidRequestError as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=409, message="Exception in add_students_to_groups. "
                                                        "You are adding students who exist in the group")
         uow.service_session.add(groups_model)
-        await uow.service_session.commit()
-        await uow.service_session.close()
+        try:
+            await uow.service_session.commit()
+            await uow.service_session.close()
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=409, message="Exception in add_students_to_groups. ")
+
 
     @classmethod
     async def add_teachers_to_groups(cls, uow: UnitOfWork, teachers_list_uuid: SGroupsTeachers, groups_uuid: UUID):
@@ -180,12 +192,18 @@ class GroupsService:
         try:
             groups_model.teachers.extend(teachers_model_list)
         except InvalidRequestError as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=409, message="Exception in add_teachers_to_groups. "
                                                        "You add teachers who exist in the group")
+
         uow.service_session.add(groups_model)
-        await uow.service_session.commit()
-        await uow.service_session.close()
+        try:
+            await uow.service_session.commit()
+            await uow.service_session.close()
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=409, message="Exception in add_teachers_to_groups. ")
+
 
     @classmethod
     async def updating_a_group_without_affecting_its_dependent_entities(cls, uow: UnitOfWork,
@@ -202,9 +220,10 @@ class GroupsService:
                 await uow.groups.edit_one(groups_uuid, groups_schema)
                 await uow.commit()
         except Exception as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=500, message="Exception in updating_a_group_without_"
                                                        "affecting_its_dependent_entities")
+
 
     @classmethod
     async def get_groups_with_filter_uuid(cls, uow: UnitOfWork, groups_uuid: UUID):
@@ -219,7 +238,9 @@ class GroupsService:
                                                                "There is no such group")
                 return group_model
             except Exception as e:
-                raise MyException(status_code=505, message=f"Exception in get_groups_with_filter - {e}")
+                pprint(e)
+                raise MyException(status_code=505, message=f"Exception in get_groups_with_filter")
+
 
     @classmethod
     async def getting_a_group_by_group_number(cls, uow: UnitOfWork, number_group: str):
@@ -233,19 +254,24 @@ class GroupsService:
                 groups = await uow.groups.find_one({"number_group": number_group})
                 return groups
             except Exception as e:
-                raise MyException(status_code=505, message=f"Exception in get_groups_with_filter - {e}")
+                pprint(e)
+                raise MyException(status_code=505, message=f"Exception in get_groups_with_filter ")
+
 
     @staticmethod
-    async def get_groups_without_students_and_teachers_and_subjects(uow: UnitOfWork):
+    async def get_groups_without_students_and_teachers_and_subjects(uow: UnitOfWork, 
+                                                                    start=None, end=None):
         """
         Get all groups without students, without teachers and without subjects
         """
         try:
             async with uow:
-                groups = await uow.groups.find_all()
+                groups = await uow.groups.find_all(end=end, start=start)
                 return groups
         except Exception as e:
-            raise MyException(status_code=505, message=f"Exception in get_only_groups - {e}")
+            pprint(e)
+            raise MyException(status_code=505, message=f"Exception in get_only_groups ")
+
 
     @staticmethod
     async def get_groups_with_subjects(uow: UnitOfWork):
@@ -259,8 +285,30 @@ class GroupsService:
             await uow.service_session.close()
             return res
         except Exception as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=505, message="Exception in get_groups_with_subjects")
+        
+
+    @staticmethod
+    async def get_subjects_from_the_group(uow: UnitOfWork, groups_uuid: UUID) -> list:
+        """
+        Get subjects from the group
+        """
+        try:
+
+            stmt = select(Groups).filter_by(**{"uuid": groups_uuid}).options(selectinload(Groups.subjects))
+
+            group = await uow.service_session.execute(stmt)
+            group = group.scalars().first()
+            await uow.service_session.close()
+            return group.subjects
+
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=505, message="Exception in get_subjects_from_the_group")
+    
+
+
 
     @staticmethod
     async def get_groups_with_students(uow: UnitOfWork):
@@ -274,8 +322,9 @@ class GroupsService:
             await uow.service_session.close()
             return res
         except Exception as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=505, message="Exception in get_groups_with_students")
+
 
     @staticmethod
     async def get_groups_with_teachers(uow: UnitOfWork):
@@ -289,8 +338,9 @@ class GroupsService:
             await uow.service_session.close()
             return res
         except Exception as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=505, message="Exception in get_groups_with_teachers")
+
 
     @staticmethod
     async def get_one_group_with_filter_uuid(uow: UnitOfWork, uuid: str):
@@ -302,9 +352,10 @@ class GroupsService:
                 groups = await uow.groups.find_one({'uuid': uuid})
                 return groups
         except Exception as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=409, message=f"Exception in get_groups_with_filter_uuid."
                                                        f"You have entered a group that does not exist")
+
 
     @staticmethod
     async def delete_groups_by_UUID(uow: UnitOfWork, groups_uuid: UUID):
@@ -316,8 +367,9 @@ class GroupsService:
                 await uow.groups.delete({'uuid': groups_uuid})
                 await uow.commit()
         except Exception as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=409, message=f"Exception in delete_groups")
+
 
     @staticmethod
     async def service_delete_subjects_from_groups(uow: UnitOfWork, subjects_uuid: UUID, groups_uuid: UUID):
@@ -330,29 +382,37 @@ class GroupsService:
                 groups_model = await uow.session.execute(stmt)
                 groups_model = groups_model.scalars().first()
             except Exception as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="Exception in service_delete_subjects_from_groups - "
                                                            "You entered the wrong group ID")
+
             if not groups_model:
                 raise MyException(status_code=409, message=f"Exception in service_delete_subjects_from_groups."
                                                            f"There is no such group.")
             try:
                 subjects_model = await uow.subjects.find_one({"uuid": subjects_uuid})
             except Exception as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="Exception in service_delete_subjects_from_groups - "
                                                            "You have entered an incorrect subject ID")
+
             if not subjects_model:
                 raise MyException(status_code=409, message=f"Exception in service_delete_subjects_from_groups. "
                                                            f"There is no such educational subject.")
             try:
                 groups_model.subjects.remove(subjects_model)
             except ValueError as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="You are deleting a school subject that "
                                                            "there is no teacher")
+
             uow.session.add(groups_model)
-            await uow.commit()
+            try:
+                await uow.commit()
+            except Exception as e:
+                pprint(e)
+                raise MyException(status_code=409, message="Exception in service_delete_subjects_from_groups. ")
+
 
     @staticmethod
     async def service_delete_teachers_from_groups(uow: UnitOfWork, teachers_uuid: UUID, groups_uuid: UUID):
@@ -365,29 +425,37 @@ class GroupsService:
                 groups_model = await uow.session.execute(stmt)
                 groups_model = groups_model.scalars().first()
             except Exception as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="Exception in service_delete_subjects_from_groups - "
                                                            "You entered the wrong group ID")
+
             if not groups_model:
                 raise MyException(status_code=409, message=f"Exception in service_delete_subjects_from_groups. "
                                                            f"There is no such group.")
             try:
                 teachers_model = await uow.teachers.find_one({"uuid": teachers_uuid})
             except Exception as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="Exception in service_delete_teachers_from_groups - "
                                                            "You have entered an incorrect teacher ID")
+
             if not teachers_model:
                 raise MyException(status_code=409, message=f"Exception in service_delete_teachers_from_groups. "
                                                            f"There is no such teacher.")
             try:
                 groups_model.teachers.remove(teachers_model)
             except ValueError as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="You are removing the teacher whose "
                                                            "the group doesn't have")
+
             uow.session.add(groups_model)
-            await uow.commit()
+            try:
+                await uow.commit()
+            except Exception as e:
+                pprint(e)
+                raise MyException(status_code=409, message="Exception in service_delete_teachers_from_groups. ")
+
 
     @staticmethod
     async def service_delete_students_from_groups(uow: UnitOfWork, students_uuid: UUID, groups_uuid: UUID):
@@ -400,26 +468,33 @@ class GroupsService:
                 groups_model = await uow.session.execute(stmt)
                 groups_model = groups_model.scalars().first()
             except Exception as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="Exception in service_delete_students_from_groups - "
                                                            "You have entered an incorrect group ID")
             if not groups_model:
+
                 raise MyException(status_code=409, message=f"Exception in service_delete_students_from_groups. "
                                                            f"There is no such group.")
             try:
                 students_model = await uow.teachers.find_one({"uuid": students_uuid})
             except Exception as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="Exception in service_delete_students_from_groups. "
                                                            f"There is no such group.")
+
             if not students_model:
                 raise MyException(status_code=409, message=f"Exception in service_delete_students_from_groups. "
                                                            f"There is no such student.")
             try:
                 groups_model.students.remove(students_model)
             except ValueError as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="You are deleting a student whose "
                                                            "the group doesn't have one")
+
             uow.session.add(groups_model)
-            await uow.commit()
+            try:
+                await uow.commit()
+            except Exception as e:
+                pprint(e)
+                raise MyException(status_code=409, message="Exception in service_delete_students_from_groups. ")

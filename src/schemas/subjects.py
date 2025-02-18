@@ -1,4 +1,4 @@
-from .dependencies_for_schemas import BaseSchema
+from .model import BaseSchema
 from pydantic import BaseModel
 from uuid import UUID
 

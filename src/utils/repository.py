@@ -29,11 +29,14 @@ class SQLAlchemyRepository(AbstractRepository):
         stmt = update(self.model).values(**data).filter_by(uuid=uuid)
         await self.session.execute(stmt)
 
-    async def find_all(self):
-        stmt = select(self.model)
+    async def find_all(self, start=None, end=None):
+        if start is not None and end is not None:
+            stmt = select(self.model).offset(start).limit(end-start)
+        else:    
+            stmt = select(self.model)
         res = await self.session.execute(stmt)
         res = [row[0].to_read_model() for row in res.all()]
-        return res
+        return res 
     
     async def find_all_with_filer(self, filter_by):
         stmt = select(self.model).filter_by(**filter_by)

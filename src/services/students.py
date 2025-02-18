@@ -8,6 +8,7 @@ from models.teachers import Teachers
 from models.students import Students
 from models.groups import Groups
 from sqlalchemy import select
+from pprint import pprint
 from uuid import UUID
 import importlib
 
@@ -62,6 +63,7 @@ class StudentsService:
                 await uow.commit()
                 return student_model
             except IntegrityError as e:
+                pprint(e)
                 await uow.session.rollback()
                 raise MyException(status_code=505, message=f"An exception occurred in add_student. "
                                                            f"This login already exists")
@@ -87,21 +89,31 @@ class StudentsService:
                                                        f"Student not found.")
 
         group_model = await cls.__get_groups(uow, group_uuid)
+        try:
+            students_model.groups = group_model
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=505, message="Exception in add_groups_to_students. "
+                                                       "An error occurred when adding a group to a student")
 
-        students_model.groups = group_model
 
-        uow.service_session.add(students_model)
-        await uow.service_session.commit()
-        await uow.service_session.close()
+        try:
+            uow.service_session.add(students_model)
+            await uow.service_session.commit()
+            await uow.service_session.close()
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=505, message=f"Exception in add_groups_to_students. ")
+
 
     @staticmethod
-    async def get_students_subjects_and_teachers(uow: UnitOfWork):
+    async def get_students_subjects_and_teachers(uow: UnitOfWork, students_uuid: UUID):
         """
         We get the student and his groups,
         his teachers and his subjects
         """
         try:
-            stmt = (select(Students)
+            stmt = (select(Students).filter_by(**{"uuid": students_uuid})
                     .options(selectinload(Students.groups),
                              selectinload(Students.groups).selectinload(Groups.subjects),
                              selectinload(Students.groups).selectinload(Groups.teachers).selectinload(
@@ -111,8 +123,11 @@ class StudentsService:
             await uow.service_session.close()
             return res
         except Exception as e:
-            print(e)
-            raise MyException(status_code=505, message=f"Exception in get_subjects_and_teachers")
+            pprint(e)
+            raise MyException(status_code=505, message=f"Exception in get_students_subjects_and_teachers. "
+                                                       "An error occurred when getting the subjects and teachers")
+
+
 
     @staticmethod
     async def get_only_students(uow: UnitOfWork):
@@ -124,8 +139,9 @@ class StudentsService:
                 students = await uow.students.find_all()
                 return students
         except Exception as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=500, message="Exception in get_only_students")
+
 
     @staticmethod
     async def get_students_with_groups(uow: UnitOfWork):
@@ -138,7 +154,7 @@ class StudentsService:
             await uow.service_session.close()
             return students_model
         except Exception as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=500, message="Exception in get_students_with_groups")
 
     @staticmethod
@@ -151,8 +167,10 @@ class StudentsService:
                 students = await uow.students.find_one({'uuid': students_uuid})
                 return students
         except Exception as e:
+            pprint(e)
             raise MyException(status_code=409, message=f"Exception in get_students_with_filter_uuid. "
                                                        f"You may have entered a non-existent student")
+
 
     @staticmethod
     async def delete_students(uow: UnitOfWork, students_uuid: UUID):
@@ -164,8 +182,9 @@ class StudentsService:
                 await uow.students.delete({"uuid": students_uuid})
                 await uow.commit()
         except Exception as e:
-            print(e)
+            pprint(e)
             raise MyException(status_code=409, message=f"Exception in delete_students")
+
 
     @staticmethod
     async def delete_groups_from_students(uow: UnitOfWork, students_uuid: UUID, groups_uuid: UUID):
@@ -178,29 +197,37 @@ class StudentsService:
                 students_model = await uow.session.execute(stmt)
                 students_model = students_model.scalars().first()
             except Exception as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="Exception in delete_groups_from_students - "
                                                            "You entered the wrong student ID")
+
             if not students_model:
                 raise MyException(status_code=409, message=f"Exception in delete_groups_from_students. "
                                                            f"There is no such student.")
             try:
                 groups_model = await uow.groups.find_one({"uuid": groups_uuid})
             except Exception as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="Exception in delete_groups_from_students - "
                                                            "You have entered an incorrect group ID")
+
             if not groups_model:
                 raise MyException(status_code=409, message=f"Exception in delete_groups_from_students. "
                                                            f"There is no such group.")
             try:
                 students_model.groups = None
             except ValueError as e:
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="You are deleting a group whose "
                                                            "the student does not have")
+
             uow.session.add(students_model)
-            await uow.commit()
+            try:
+                await uow.commit()
+            except Exception as e:
+                pprint(e)
+                raise MyException(status_code=409, message="Exception in delete_groups_from_students. ")
+
 
     @classmethod
     async def update_students_by_UUID(cls, uow: UnitOfWork, students_schema: SStudentsEdit, students_uuid: UUID):
@@ -215,5 +242,5 @@ class StudentsService:
                 await uow.commit()
             except Exception as e:
                 await uow.rollback()
-                print(e)
+                pprint(e)
                 raise MyException(status_code=409, message="Exception in update_students_by_UUID")

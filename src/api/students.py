@@ -1,6 +1,7 @@
 from services.students import StudentsService
+from fastapi import APIRouter, status, Request
 from api.dependencies import UOWDep, limiter
-from fastapi import APIRouter, status
+from uuid import UUID
 
 router = APIRouter(
     prefix="/students",
@@ -8,19 +9,17 @@ router = APIRouter(
 )
 
 
-@router.get("/all/groups/teachers/subjects",
-            description="Get all the students in their group, "
-                        "their academic subjects and their teachers",
+@router.get("/{students_uuid}/groups/teachers/subjects",
+            description="Get the student and his group, his academic subjects and his teachers.",
             status_code=status.HTTP_200_OK,
-            summary="Get all students",
+            summary="Get the student and his group, his academic subjects and his teachers",
             )
-@limiter.limit("5/minute")
-async def get_all_students(
-        uow: UOWDep,
-):
+@limiter.limit("50/minute")
+async def get_student_and_their_group(request: Request, uow: UOWDep, students_uuid: UUID):
     """
-    Get all the students in their group,
-    their academic subjects and their teachers
+    Get the student and his group, his academic subjects and his teachers
     """
-    students = await StudentsService().get_students_subjects_and_teachers(uow)
+    students = await StudentsService().get_students_subjects_and_teachers(uow, students_uuid)
     return students
+
+

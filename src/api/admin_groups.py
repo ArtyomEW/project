@@ -2,6 +2,7 @@ from schemas.groups import (SGroupsAdd, SGroupsSubjects, SGroupsStudents,
                             SGroupsTeachers, SGroupsEdit)
 from fastapi import APIRouter, status, Depends
 from api.dependencies import UOWDep, limiter
+from core.paginator import PaginatedParams
 from services.groups import GroupsService
 from starlette.requests import Request
 from typing import Annotated
@@ -9,7 +10,7 @@ from uuid import UUID
 
 router = APIRouter(prefix='/admin/groups',
                    tags=['AdminGroups'])
-
+ 
 
 @router.post('/', description="Add groups",
              status_code=status.HTTP_201_CREATED, )
@@ -119,13 +120,13 @@ async def all_groups(uow: UOWDep):
     """
     groups = await GroupsService().get_groups_without_students_and_teachers_and_subjects(uow)
     return groups
-
-
+    
+    
 @router.get('/all/subjects', summary="Get all groups with subjects",
             status_code=status.HTTP_200_OK, )
 async def all_groups_with_subjects(uow: UOWDep):
     """
-    Get all groups with academic subjects
+    Get all groups with academic subjects 
     """
     groups_with_subjects = await GroupsService().get_groups_with_subjects(uow)
     return groups_with_subjects
@@ -149,3 +150,13 @@ async def all_groups_with_teachers(uow: UOWDep):
     """
     groups_with_teachers = await GroupsService().get_groups_with_teachers(uow)
     return groups_with_teachers
+
+
+@router.get('/{groups_uuid}/subjects', summary="Get subjects from the group", 
+            status_code=status.HTTP_200_OK, )
+async def get_subjects_from_the_group(uow: UOWDep, groups_uuid: UUID):
+    """
+    Get subjects from the group
+    """
+    subjects_from_group = await GroupsService().get_subjects_from_the_group(uow, groups_uuid)
+    return subjects_from_group

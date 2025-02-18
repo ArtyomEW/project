@@ -1,4 +1,3 @@
-from models.groups import Groups
 from schemas.teachers import (STeacherAdd, STeachersEdit,
                               STeachersSubjects, STeachersGroups)
 from sqlalchemy.exc import IntegrityError, InvalidRequestError
@@ -7,6 +6,7 @@ from utils.unitofwork import UnitOfWork
 from core.exceptions import MyException
 from sqlalchemy.orm import selectinload
 from models.teachers import Teachers
+from models.groups import Groups
 from sqlalchemy import select
 from pprint import pprint
 from uuid import UUID
@@ -48,6 +48,20 @@ class TeachersService:
             else:
                 list_groups.append(groups)
         return list_groups
+    
+    @staticmethod
+    async def __get_one_groups_with_subjects(uow: UnitOfWork, groups_uuid: UUID):
+        """
+        We get groups. Using the GroupsService group service
+        """
+        try:
+            module = importlib.import_module("services.groups")
+            subjects = await module.GroupsService().get_subjects_from_the_group(uow, groups_uuid)
+            return subjects
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=505, message="Exception in get_one_groups_with_subjects")
+
 
     @staticmethod
     def __convert_lines_to_small_letters_in_teachers_service(teachers_schema: dict[str, str]) -> dict:
@@ -88,10 +102,11 @@ class TeachersService:
                 await uow.teachers.add_one(teachers)
                 await uow.commit()
                 return teachers
-            except IntegrityError as e:
+            except Exception as e:
                 await uow.session.rollback()
                 pprint(e)
-                raise MyException(status_code=409, message=f"An exception occurred in add_subjects")
+                raise MyException(status_code=409, message=f"An exception occurred in add_teachers")
+    
 
     @staticmethod
     async def get_teachers_with_filter_uuid(uow: UnitOfWork, teacher_uuid: UUID):
@@ -162,6 +177,40 @@ class TeachersService:
         except Exception as e:
             pprint(e)
             raise MyException(status_code=505, message="Exception in get_all_teachers_with_groups")
+    
+
+    @staticmethod
+    async def get_teacher_groups(uow: UnitOfWork, teacher_uuid: UUID):
+        """
+        get teacher groups
+        """
+        try:
+            stmt = select(Teachers).filter_by(**{"uuid": teacher_uuid}).options(selectinload(Teachers.groups))
+            res = await uow.service_session.execute(stmt)
+            res = res.scalars().first()
+            await uow.service_session.close()
+            return res
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=505, message="Exception in get_teacher_groups")
+    
+
+    @staticmethod
+    async def get_teacher_subjects(uow: UnitOfWork, teacher_uuid: UUID):
+        """
+        get teacher subjects
+        """ 
+        try:
+            stmt = select(Teachers).filter_by(**{"uuid": teacher_uuid}).options(selectinload(Teachers.subjects))
+            res = await uow.service_session.execute(stmt)
+            res = res.scalars().first()
+            await uow.service_session.close()
+            return res
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=505, message="Exception in get_teacher_subjects")
+
+
 
     @classmethod
     async def edit_only_teachers(cls, uow: UnitOfWork, teacher_schema: STeachersEdit, teachers_uuid: UUID):
@@ -169,6 +218,7 @@ class TeachersService:
         Update the teacher without affecting his subjects and groups
         """
         teacher_schema = teacher_schema.model_dump()
+
         teacher_schema = cls.__convert_lines_to_small_letters_in_teachers_service(teacher_schema)
 
         try:
@@ -203,12 +253,22 @@ class TeachersService:
                                                        f"Teacher not found.")
 
         list_subjects = await cls.__get_subjects(uow, subjects_uuid)
+        try:
+            teachers_model.subjects.extend(list_subjects)
+        except InvalidRequestError as e:
+            pprint(e)
+            raise MyException(status_code=409, message="Exception in add_subjects_by_teachers. "
+                                                       "You are adding a subject that exists with the teacher")
 
-        teachers_model.subjects.extend(list_subjects)
 
         uow.service_session.add(teachers_model)
-        await uow.service_session.commit()
-        await uow.service_session.close()
+        try:
+            await uow.service_session.commit()
+            await uow.service_session.close()
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=409, message="Exception in add_subjects_by_teachers. ")
+
 
     @classmethod
     async def add_groups_by_teachers(cls, uow: UnitOfWork, groups_uuid: STeachersGroups, teachers_uuid: UUID):
@@ -238,7 +298,13 @@ class TeachersService:
             raise MyException(status_code=409, message="Exception in add_groups_by_teachers. "
                                                        "You are adding a group that exists with the teacher")
         uow.service_session.add(teachers_model)
-        await uow.service_session.commit()
+        try: 
+            await uow.service_session.commit()
+            await uow.service_session.close()
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=409, message="Exception in add_groups_by_teachers. ")
+
 
     @classmethod
     async def delete_subjects_from_teachers(cls, uow: UnitOfWork, subjects_uuid: UUID, teachers_uuid: UUID):
@@ -273,7 +339,12 @@ class TeachersService:
                 raise MyException(status_code=409, message="You are deleting a school subject that "
                                                            "there is no teacher")
             uow.session.add(teachers_model)
-            await uow.commit()
+            try:
+                await uow.commit()
+            except Exception as e:
+                pprint(e)
+                raise MyException(status_code=409, message="Exception in delete_subjects_from_teachers. ")
+
 
     @classmethod
     async def delete_groups_from_teachers(cls, uow: UnitOfWork, groups_uuid: UUID, teachers_uuid: UUID):
@@ -311,13 +382,48 @@ class TeachersService:
             except Exception as e:
                 pprint(e)
                 raise MyException(status_code=500, message=f"Exception in delete_groups_from_teachers")
-            await uow.commit()
+            try:
+                await uow.commit()
+            except Exception as e:
+                pprint(e)
+                raise MyException(status_code=409, message="Exception in delete_groups_from_teachers. ")
 
     @staticmethod
     async def get_the_teacher_and_his_groups(uow: UnitOfWork, teacher_uuid: UUID):
         """
         get the teacher and his groups
         """
-        stmt = (select(Teachers).filter_by(**{"uuid": teacher_uuid}).
-                options(selectinload(Teachers.groups).selectinload(Groups.students)))
+        try:
 
+            stmt = select(Teachers).filter_by(**{"uuid": teacher_uuid}).options(selectinload(Teachers.groups))
+            res = await uow.service_session.execute(stmt)
+            res = res.scalars().all()
+            await uow.service_session.close()
+            return res
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=500, message="Exception in get_the_teacher_and_his_groups")
+
+    @classmethod
+    async def receive_educational_items_from_the_group(cls, uow: UnitOfWork, group_uuid: UUID, teacher_uuid: UUID) -> list:
+        """
+        receive from the group educational items that the teacher has
+        """
+        try:
+            subjects_for_teacher = []
+            stmt = select(Teachers).filter_by(**{"uuid": teacher_uuid}).options(selectinload(Teachers.subjects))
+            res = await uow.service_session.execute(stmt)
+            res = res.scalars().first()
+            await uow.service_session.close()
+            subjects_from_teacher = res.subjects
+
+            subjects_from_group = await cls.__get_one_groups_with_subjects(uow, group_uuid)
+            subjects_from_group = [subject.name for subject in subjects_from_group]
+            for subject in subjects_from_teacher:
+                if subject.name in subjects_from_group:
+                    subjects_for_teacher.append(subject)
+            return subjects_for_teacher
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=505, message="Exception in receive_educational_items_from_the_group")
+    

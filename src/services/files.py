@@ -11,8 +11,8 @@ class FilesService:
     async def add_file(uow: UnitOfWork, file: UploadFile,
                        groups_uuid: UUID, subjects_uuid: UUID):
         """
-        Конвертируем файл в bytes и
-        добавляем в базу данных
+        Converted file in bytes and
+        add to database
         """
         try:
             file_bytes = await file.read()

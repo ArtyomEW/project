@@ -1,4 +1,4 @@
-from .dependencies_for_schemas import BaseSchema, Field
+from .model import BaseSchema, Field
 from datetime import datetime
 
 

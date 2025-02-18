@@ -145,7 +145,12 @@ class SubjectsService:
                 raise MyException(status_code=409, message="You are deleting a group whose "
                                                            "there is no subject")
             uow.session.add(subjects_model)
-            await uow.commit()
+            try:
+                await uow.commit()
+            except Exception as e:
+                pprint(e)
+                raise MyException(status_code=409, message="Exception in delete_groups_from_subjects. ")
+
 
     @staticmethod
     async def delete_teachers_from_subjects(uow: UnitOfWork, teachers_uuid: UUID, subjects_uuid: UUID):
@@ -180,7 +185,12 @@ class SubjectsService:
                 raise MyException(status_code=409, message="You are removing the teacher whose "
                                                            "there is no subject")
             uow.session.add(subjects_model)
-            await uow.commit()
+            try:
+                await uow.commit()
+            except Exception as e:
+                pprint(e)
+                raise MyException(status_code=409, message="Exception in delete_teachers_from_subjects. ")
+
 
     @staticmethod
     async def get_all_subjects_without_groups_and_teachers(uow: UnitOfWork):
@@ -222,8 +232,13 @@ class SubjectsService:
             raise MyException(status_code=409, message="Exception in add_groups_by_subjects. "
                                                        "You add a group that exists for an item")
         uow.service_session.add(subjects_model)
-        await uow.service_session.commit()
-        await uow.service_session.close()
+        try:
+            await uow.service_session.commit()
+            await uow.service_session.close()
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=409, message="Exception in add_groups_by_subjects. ")
+
 
     @classmethod
     async def add_teachers_to_subjects(cls, uow: UnitOfWork, teachers_uuid: SSubjectsTeachers, subjects_uuid: UUID):
@@ -252,7 +267,13 @@ class SubjectsService:
             raise MyException(status_code=409, message="Exception in add_teachers_to_subjects. "
                                                        "You are adding a teacher who does not exist for the subject")
         uow.service_session.add(subjects_model)
-        await uow.service_session.commit()
+        try:
+            await uow.service_session.commit()
+            await uow.service_session.close()
+        except Exception as e:
+            pprint(e)
+            raise MyException(status_code=409, message="Exception in add_teachers_to_subjects. ")
+
 
     @classmethod
     async def edit_only_subjects(cls, uow: UnitOfWork, subjects_schema: SSubjectsEdit, subjects_uuid: UUID):

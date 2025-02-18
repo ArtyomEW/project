@@ -1,5 +1,5 @@
-from .dependencies_for_schemas import BaseSchema
 from pydantic import Field, BaseModel
+from .model import BaseSchema
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
