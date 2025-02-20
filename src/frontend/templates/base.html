@@ -4,19 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FastAPI + Fetch</title>
-    <script defer src="src/frontend/js_get/get_objects.js"></script>
+    <link rel="stylesheet" href="/static/static.css">
+    <article id="urls" 
+             data-url="{{url}}">
+    </article>
 </head>
-<body>
-    <h1>Выберите данные:</h1>
-    
-    <button onclick="loadData('http://127.0.0.1:8000/admin/groups/all')">Загрузить группы</button>
-    <button onclick="loadData('authors')"> Загрузить авторов</button>
-    
-    <ul id="data-list"></ul>
-
-    <!-- Передаём API-эндпоинты в JSON -->
-    <script>
-        let API_ENDPOINTS =  api_endpoints | tojson;
-    </script>
+<body>    
+  <h1>Поиск по данным</h1>
+  
+  <!-- Поле ввода для поиска -->
+  <input type="text" id="search" placeholder="Введите запрос для поиска...">
+  
+  <ul id="data-list"></ul>
+  
+  <!-- Подключаем скрипт -->
+  <script src="/static/get_objects.js"></script>
 </body>
 </html>
+

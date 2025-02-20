@@ -10,16 +10,17 @@ from api.routers import all_routers
 from fastapi import FastAPI
 import uvicorn
 
-app = FastAPI()
+app = FastAPI() 
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
+app.mount("/static", StaticFiles(directory="frontend/static"), name="frontend_static")
+
 
 
 @app.exception_handler(MyException)
 async def item_not_found_exception_handler(request: Request, exc: MyException):
-    return JSONResponse(
+    return JSONResponse( 
         status_code=exc.status_code,
         content={"message": f"{exc.message}"})
 

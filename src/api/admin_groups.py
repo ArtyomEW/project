@@ -114,11 +114,12 @@ async def delete_students_from_groups(uow: UOWDep, groups_uuid: UUID, students_u
 
 @router.get('/all', summary="Get all groups",
             status_code=status.HTTP_200_OK, )
-async def all_groups(uow: UOWDep):
+async def all_groups(uow: UOWDep, paginate = Depends(PaginatedParams)):
     """
     Get all groups without students, without teachers and without subjects
     """
-    groups = await GroupsService().get_groups_without_students_and_teachers_and_subjects(uow)
+    groups = await GroupsService().get_groups_without_students_and_teachers_and_subjects(uow, paginate.start,
+                                                                                         paginate.end)
     return groups
     
     
