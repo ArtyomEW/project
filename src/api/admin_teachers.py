@@ -93,7 +93,10 @@ async def get_all_teachers(uow: UOWDep):
     Get all teachers without academic subjects
     """
     data_teachers = await TeachersService().get_all_teachers(uow)
-    return data_teachers
+    if not data_teachers:
+        return {"has_next": False}
+    return {"data": data_teachers, "has_next": True}
+
 
 
 @router_teachers.get('/all/groups',
@@ -104,7 +107,10 @@ async def get_all_teachers_with_groups(uow: UOWDep):
     Get all teachers with their groups
     """
     data_teachers = await TeachersService().get_all_teachers_with_groups(uow)
-    return data_teachers
+    if not data_teachers:
+        return {"has_next": False}
+    return {"data": data_teachers, "has_next": True}
+
 
 
 @router_teachers.get('/all/subjects', status_code=status.HTTP_200_OK,
@@ -114,4 +120,6 @@ async def get_all_teachers_with_subjects(uow: UOWDep):
     Get all teachers with their academic subjects
     """
     data_teachers = await TeachersService().get_all_teachers_with_subjects(uow)
-    return data_teachers
+    if not data_teachers:
+        return {"has_next": False}
+    return {"data": data_teachers, "has_next": True}

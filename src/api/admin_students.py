@@ -72,13 +72,12 @@ async def removing_a_group_from_a_student(uow: UOWDep, students_uuid: UUID, grou
 @router_admin_students.get("/all",
                            description="Get all students but without their groups",
                            status_code=status.HTTP_200_OK,
-                           summary="Get all students",
-                           )
-async def get_all_students(
-        uow: UOWDep,
-):
+                           summary="Get all students",)
+async def get_all_students(uow: UOWDep):
     """
     Get all students but without their groups
     """
     students = await StudentsService().get_only_students(uow)
-    return students
+    if not students:
+        return {"has_next": False}
+    return {"data": students, "has_next": True}

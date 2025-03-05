@@ -6,3 +6,4 @@ from fastapi import Depends
 
 UOWDep = Annotated[IUnitOfWork, Depends(UnitOfWork)]
 limiter = Limiter(key_func=get_remote_address)
+  

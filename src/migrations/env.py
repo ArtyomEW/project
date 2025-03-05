@@ -9,7 +9,7 @@ from models.groups import Groups
 from models.subjects import Subjects
 from models.students import Students
 from models.teachers import Teachers
-from models.files import Files
+from models.files import Filesы
 from models.m2m import groups_subjects, teachers_groups, teachers_subjects
 import asyncio
 
@@ -26,9 +26,6 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-
-# [Groups.metadata, Students.metadata, Subjects.metadata, Teachers.metadata, groups_subjects.metadata,
-#                    teachers_groups.metadata, teachers_subjects.metadata]
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

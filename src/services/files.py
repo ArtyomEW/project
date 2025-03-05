@@ -15,7 +15,7 @@ class FilesService:
         add to database
         """
         try:
-            file_bytes = await file.read()
+            file_bytes: bytes = await file.read()
         except Exception as e:
             pprint(e)
             raise MyException(status_code=409, message="Исключение в add_file. "

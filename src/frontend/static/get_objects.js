@@ -1,30 +1,67 @@
 var article = document.getElementById('urls');
+let list = document.getElementById("data-list");
+
+
+let page_num = 1;
+let page_size = 10;
+let has_next;
+
+
+function updateButtonStates() {
+  const prevButton = document.getElementById('prev-page');
+  const nextButton = document.getElementById('next-page');
+  
+  prevButton.disabled = page_num === 1;    // Назад неактивна на первой странице
+  nextButton.disabled = has_next === false;
+  if (!has_next){
+    nextButton.disabled = has_next === false;
+    renderData([]);
+  }
+      // Вперед неактивна при отсутствии следующей страницы
+}
+
+
 
 // Универсальная функция загрузки данных
 async function loadData(entity) {
-  let endpoint = entity;
-
+  let endpoint = `${entity}?page_num=${page_num}&page_size=${page_size}`;
+  console.log(endpoint);
+  
   if (!endpoint) {
-    console.error("Эндпоинт не найден для:", entity); return;}
+    console.error("Эндпоинт не найден для:", entity);
+    return;
+  }
 
   try {
     let response = await fetch(endpoint);
     let data = await response.json();
     
-    // Отображаем данные и сохраняем их для фильтрации
-    window.data = data; // Сохраняем данные в глобальной переменной
-    renderData(data);
+    // Сохраняем данные для фильтрации
+    window.data = data; // data содержит { groups: [...], has_next: ... }
+    console.log(data);
+    
+    has_next = data['has_next']; // Сохраняем информацию о следующей странице
+    
+    // Отображаем только группы
+    if (data['data']){
+      renderData(data['data']);
+    };
+    updateButtonStates();
   } catch (error) {
-    console.error("Ошибка при загрузке данных:", error);
+    console.error("Ошибка при загрузке данных:", error); 
   }
 }
 
 // Функция для отображения данных
 function renderData(data) {
-  let list = document.getElementById("data-list");
+  
   list.innerHTML = ""; // Очищаем список перед новой загрузкой
   
-  // Отображаем отфильтрованные или все данные
+  if (data.length === 0) {
+    list.innerHTML = "<li>Нет данных</li>";
+    return;
+  }
+
   data.forEach(item => {
     let li = document.createElement("li");
 
@@ -40,23 +77,36 @@ function filterData() {
   let query = document.getElementById('search').value.toLowerCase();
   
   // Если данные еще не загружены, ничего не фильтруем
-  if (!window.data) return;
+  if (!window.data || !window.data.data) return;
 
-  // Фильтруем данные на основе ввода в поле поиска
-  let filteredData = window.data.filter(item => {
-    // Проверяем, если хотя бы одно поле объекта содержит строку поиска
-    return Object.values(item).some(value => 
+  // Фильтруем только группы
+  let filteredData = window.data.data.filter(item => 
+    Object.values(item).some(value => 
       String(value).toLowerCase().includes(query)
-    );
-  });
+    )
+  );
 
   // Отображаем отфильтрованные данные
   renderData(filteredData);
 }
 
+// Обработчики кнопок переключения страниц
+document.getElementById('prev-page').addEventListener('click', () => {
+  if (page_num > 1) {
+    page_num--;  
+    loadData(article.dataset.url);
+  } 
+});
+
+document.getElementById('next-page').addEventListener('click', () => {
+  if (has_next) {  // Было !has_next, поменял на has_next
+    page_num++;
+    loadData(article.dataset.url);
+  } 
+});
+
 // Слушаем изменения в поле поиска
 document.getElementById('search').addEventListener('input', filterData);
-console.log(article.dataset.url)
-// Загружаем данные при инициализации
-loadData(article.dataset.url);
 
+// Загружаем данные при старте
+loadData(article.dataset.url);

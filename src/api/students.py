@@ -20,6 +20,6 @@ async def get_student_and_their_group(request: Request, uow: UOWDep, students_uu
     Get the student and his group, his academic subjects and his teachers
     """
     students = await StudentsService().get_students_subjects_and_teachers(uow, students_uuid)
-    return students
-
-
+    if not students:
+        return {"has_next": False}
+    return {"data": students, "has_next": True}

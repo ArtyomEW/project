@@ -112,26 +112,32 @@ async def delete_students_from_groups(uow: UOWDep, groups_uuid: UUID, students_u
     await GroupsService().service_delete_students_from_groups(uow, students_uuid, groups_uuid)
 
 
-@router.get('/all', summary="Get all groups",
+@router.get('/all', summary="Get all groups", 
             status_code=status.HTTP_200_OK, )
-async def all_groups(uow: UOWDep, paginate = Depends(PaginatedParams)):
+async def all_groups(uow: UOWDep, paginate = Depends(PaginatedParams)):   
     """
     Get all groups without students, without teachers and without subjects
     """
     groups = await GroupsService().get_groups_without_students_and_teachers_and_subjects(uow, paginate.start,
                                                                                          paginate.end)
-    return groups
-    
-    
+    if not groups:
+        return {"has_next": False}
+    return {"data": groups, "has_next": True}
+       
+      
 @router.get('/all/subjects', summary="Get all groups with subjects",
             status_code=status.HTTP_200_OK, )
 async def all_groups_with_subjects(uow: UOWDep):
+    """ 
+    Get all groups with academic subjects   
     """
-    Get all groups with academic subjects 
-    """
-    groups_with_subjects = await GroupsService().get_groups_with_subjects(uow)
-    return groups_with_subjects
-
+    groups_with_subjects = await GroupsService().get_groups_with_subjects(uow) 
+    
+    if not groups_with_subjects:
+        return {"has_next": False}
+    return {"data": groups_with_subjects, "has_next": True}
+    
+    
 
 @router.get('/all/students', summary="Get all groups with students",
             status_code=status.HTTP_200_OK, )
@@ -140,7 +146,10 @@ async def all_groups_with_students(uow: UOWDep):
     Get all groups with students
     """
     groups_with_students = await GroupsService().get_groups_with_students(uow)
-    return groups_with_students
+    if not groups_with_students:
+        return {"has_next": False}
+    return {"data": groups_with_students, "has_next": True}
+
 
 
 @router.get('/all/teachers', summary="Get all groups with teachers",
@@ -150,7 +159,10 @@ async def all_groups_with_teachers(uow: UOWDep):
     Get all groups with teachers
     """
     groups_with_teachers = await GroupsService().get_groups_with_teachers(uow)
-    return groups_with_teachers
+    if not groups_with_teachers:
+        return {"has_next": False}
+    return {"data": groups_with_teachers, "has_next": True} 
+
 
 
 @router.get('/{groups_uuid}/subjects', summary="Get subjects from the group", 
@@ -160,4 +172,6 @@ async def get_subjects_from_the_group(uow: UOWDep, groups_uuid: UUID):
     Get subjects from the group
     """
     subjects_from_group = await GroupsService().get_subjects_from_the_group(uow, groups_uuid)
-    return subjects_from_group
+    if not subjects_from_group:
+        return {"has_next": False}
+    return {"data": subjects_from_group, "has_next": True}

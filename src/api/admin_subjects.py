@@ -1,9 +1,12 @@
 from schemas.subjects import (SSubjectsAdd, SSubjectsGroups, SSubjectsTeachers, SSubjectsEdit)
 from fastapi import APIRouter, status, Depends
 from services.subjects import SubjectsService
+from core.paginator import PaginatedParams
 from api.dependencies import UOWDep
 from typing import Annotated
 from uuid import UUID
+
+
 
 router = APIRouter(
     prefix='/admin/subjects',
@@ -88,13 +91,16 @@ async def delete_teachers_from_subjects_by_uuid(uow: UOWDep, subjects_uuid: UUID
 
 @router.get('/all', status_code=status.HTTP_200_OK,
             summary='Get all subjects')
-async def get_all_subjects(uow: UOWDep):
+async def get_all_subjects(uow: UOWDep, paginate = Depends(PaginatedParams)): 
     """
     Get all educational items
     """
-    all_subjects = await SubjectsService().get_all_subjects_without_groups_and_teachers(uow)
-    return all_subjects
-
+    all_subjects = await SubjectsService().get_all_subjects_without_groups_and_teachers(uow, paginate.start,
+                                                                                         paginate.end)
+    if not all_subjects:
+            return {"has_next": False}
+    return {"data": all_subjects, "has_next": True}
+      
 
 @router.get('/all/groups', status_code=status.HTTP_200_OK,
             summary="Get all subjects with groups")
@@ -103,7 +109,10 @@ async def get_all_subjects_with_groups(uow: UOWDep):
     Get all teachers with their groups
     """
     data_subjects = await SubjectsService().get_all_subjects_with_groups(uow)
-    return data_subjects
+    if not data_subjects:
+        return {"has_next": False}
+    return {"data": data_subjects, "has_next": True}
+
 
 
 @router.get('/all/teachers', status_code=status.HTTP_200_OK,
@@ -113,4 +122,7 @@ async def get_all_subjects_with_teachers(uow: UOWDep):
     Get all teachers with their teachers
     """
     data_subjects = await SubjectsService().get_all_subjects_with_teachers(uow)
-    return data_subjects
+    if not data_subjects:
+        return {"has_next": False}
+    return {"data": data_subjects, "has_next": True}
+

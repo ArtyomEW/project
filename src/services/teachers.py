@@ -410,7 +410,7 @@ class TeachersService:
         receive from the group educational items that the teacher has
         """
         try:
-            subjects_for_teacher = []
+            subjects_for_teacher = {}
             stmt = select(Teachers).filter_by(**{"uuid": teacher_uuid}).options(selectinload(Teachers.subjects))
             res = await uow.service_session.execute(stmt)
             res = res.scalars().first()
@@ -421,7 +421,7 @@ class TeachersService:
             subjects_from_group = [subject.name for subject in subjects_from_group]
             for subject in subjects_from_teacher:
                 if subject.name in subjects_from_group:
-                    subjects_for_teacher.append(subject)
+                    subjects_for_teacher[subject.uuid] = subject.name   
             return subjects_for_teacher
         except Exception as e:
             pprint(e)

@@ -14,7 +14,9 @@ async def get_subjects_teachers_that_the_group_has(uow: UOWDep, group_uuid: UUID
     """
     subjects_teachers_that_the_group_has = await TeachersService().receive_educational_items_from_the_group(
         uow, group_uuid, teachers_uuid)
-    return subjects_teachers_that_the_group_has
+    if not subjects_teachers_that_the_group_has:
+        return {"has_next": False}
+    return {"data": subjects_teachers_that_the_group_has, "has_next": True}
     
 
 @router.get('/{teachers_uuid}/groups', 
@@ -25,7 +27,10 @@ async def get_teacher_groups(uow: UOWDep, teachers_uuid: UUID):
     get teacher groups
     """
     teacher_groups = await TeachersService().get_teacher_groups(uow, teachers_uuid)
-    return teacher_groups
+    if not teacher_groups:
+        return {"has_next": False}
+    return {"data": teacher_groups, "has_next": True}
+
 
 
 @router.get('/{teachers_uuid}/subjects', 
@@ -36,6 +41,6 @@ async def get_teacher_subjects(uow: UOWDep, teachers_uuid: UUID):
     get teacher subjects
     """
     teacher_subjects = await TeachersService().get_teacher_subjects(uow, teachers_uuid)
-    return teacher_subjects
-
-
+    if not teacher_subjects:
+        return {"has_next": False}
+    return {"data": teacher_subjects, "has_next": True}

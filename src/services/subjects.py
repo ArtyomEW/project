@@ -193,13 +193,13 @@ class SubjectsService:
 
 
     @staticmethod
-    async def get_all_subjects_without_groups_and_teachers(uow: UnitOfWork):
+    async def get_all_subjects_without_groups_and_teachers(uow: UnitOfWork, start=None, end=None):
         """
         Get all educational items
         """
         try:
             async with uow:
-                data_subjects = await uow.subjects.find_all()
+                data_subjects = await uow.subjects.find_all(end=end, start=start)
                 return data_subjects
         except Exception as e:
             pprint(e)
